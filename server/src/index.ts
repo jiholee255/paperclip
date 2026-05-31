@@ -636,6 +636,7 @@ export async function startServer(): Promise<StartedServer> {
     allowedHostnames: config.allowedHostnames,
     bindHost: runtimeListenHost,
     port: listenPort,
+    onWarn: (message, detail) => logger.warn(detail, message),
   });
   const runtimeApiCandidates = buildRuntimeApiCandidateUrls({
     authPublicBaseUrl: config.authPublicBaseUrl ?? null,

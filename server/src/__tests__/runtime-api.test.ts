@@ -60,6 +60,52 @@ describe("runtime API discovery", () => {
     ]);
   });
 
+  it("defaults to https on the standard port for a public hostname when publicBaseUrl is unset (COC-136)", () => {
+    const warnings: Array<{ message: string; detail: Record<string, unknown> }> = [];
+    const url = choosePrimaryRuntimeApiUrl({
+      authPublicBaseUrl: null,
+      allowedHostnames: ["paperclip.example.com"],
+      bindHost: "127.0.0.1",
+      port: 3100,
+      onWarn: (message, detail) => warnings.push({ message, detail }),
+    });
+    // Behind a TLS reverse proxy, http://host:3100 is unreachable — derive https://host instead.
+    expect(url).toBe("https://paperclip.example.com");
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].detail).toMatchObject({
+      allowedHostname: "paperclip.example.com",
+      derived: "https://paperclip.example.com",
+      listensLocally: true,
+    });
+  });
+
+  it("warns but keeps http://ip:port for a public IP host when publicBaseUrl is unset (COC-136)", () => {
+    const warnings: string[] = [];
+    const url = choosePrimaryRuntimeApiUrl({
+      authPublicBaseUrl: null,
+      allowedHostnames: ["198.51.100.10"],
+      bindHost: "127.0.0.1",
+      port: 3100,
+      onWarn: (message) => warnings.push(message),
+    });
+    // The scheme/port for a bare IP cannot be safely inferred; warn rather than guess.
+    expect(url).toBe("http://198.51.100.10:3100");
+    expect(warnings).toHaveLength(1);
+  });
+
+  it("does not warn or upgrade scheme when publicBaseUrl is explicitly set", () => {
+    const warnings: string[] = [];
+    const url = choosePrimaryRuntimeApiUrl({
+      authPublicBaseUrl: "https://paperclip.example.com",
+      allowedHostnames: ["paperclip.example.com"],
+      bindHost: "127.0.0.1",
+      port: 3100,
+      onWarn: (message) => warnings.push(message),
+    });
+    expect(url).toBe("https://paperclip.example.com");
+    expect(warnings).toHaveLength(0);
+  });
+
   it("adds host.docker.internal when the explicit base URL is loopback", () => {
     expect(
       buildRuntimeApiCandidateUrls({
