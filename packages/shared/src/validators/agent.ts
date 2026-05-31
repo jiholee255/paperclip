@@ -1,11 +1,11 @@
 import { z } from "zod";
 import {
-  AGENT_ADAPTER_TYPES,
   AGENT_ICON_NAMES,
   AGENT_ROLES,
   AGENT_STATUSES,
   INBOX_MINE_ISSUE_STATUS_FILTER,
 } from "../constants.js";
+import { agentAdapterTypeSchema } from "../adapter-type.js";
 import { envConfigSchema } from "./secret.js";
 
 export const agentPermissionsSchema = z.object({
@@ -44,6 +44,13 @@ const adapterConfigSchema = z.record(z.unknown()).superRefine((value, ctx) => {
   }
 });
 
+export const createAgentInstructionsBundleSchema = z.object({
+  entryFile: z.string().trim().min(1).optional(),
+  files: z.record(z.string()).refine((files) => Object.keys(files).length > 0, {
+    message: "instructionsBundle.files must contain at least one file",
+  }),
+});
+
 export const createAgentSchema = z.object({
   name: z.string().min(1),
   role: z.enum(AGENT_ROLES).optional().default("general"),
@@ -52,9 +59,11 @@ export const createAgentSchema = z.object({
   reportsTo: z.string().uuid().optional().nullable(),
   capabilities: z.string().optional().nullable(),
   desiredSkills: z.array(z.string().min(1)).optional(),
-  adapterType: z.enum(AGENT_ADAPTER_TYPES).optional().default("process"),
+  adapterType: agentAdapterTypeSchema,
   adapterConfig: adapterConfigSchema.optional().default({}),
+  instructionsBundle: createAgentInstructionsBundleSchema.optional(),
   runtimeConfig: z.record(z.unknown()).optional().default({}),
+  defaultEnvironmentId: z.string().uuid().optional().nullable(),
   budgetMonthlyCents: z.number().int().nonnegative().optional().default(0),
   permissions: agentPermissionsSchema.optional(),
   metadata: z.record(z.unknown()).optional().nullable(),
